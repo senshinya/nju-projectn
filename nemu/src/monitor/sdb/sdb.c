@@ -65,6 +65,21 @@ static int cmd_si(char *args) {
   return 0;
 }
 
+static int cmd_info(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("Usage: info r|w\n");
+  } else if (strcmp(arg, "r") == 0) {
+    // print register statement
+    isa_reg_display();
+  } else if (strcmp(arg, "w") == 0) {
+    // TODO implement watchpoint information
+  } else {
+    printf("Usage: info r|w\n");
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -76,6 +91,7 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   { "si", "Step through N(default 1) instruction(s)", cmd_si },
+  { "info", "Print register state(info r) or watchpoint information(info w)", cmd_info}
 
   /* TODO: Add more commands */
 
