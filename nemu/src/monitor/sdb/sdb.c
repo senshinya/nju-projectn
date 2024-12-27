@@ -53,6 +53,18 @@ static int cmd_q(char *args) {
   return -1;
 }
 
+static int cmd_si(char *args) {
+  uint64_t n = 1;
+  char *arg = strtok(NULL, " ");
+  if (arg != NULL) {
+    /* specify the number of instructions */
+    n = strtol(arg, NULL, 10);
+    if (n == 0) n = 1;
+  }
+  cpu_exec(n);
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -63,6 +75,7 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
+  { "si", "Step through N(default 1) instruction(s)", cmd_si },
 
   /* TODO: Add more commands */
 
