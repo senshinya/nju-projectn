@@ -15,6 +15,7 @@
 
 #include <isa.h>
 #include <cpu/cpu.h>
+#include <memory/paddr.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
@@ -80,6 +81,26 @@ static int cmd_info(char *args) {
   return 0;
 }
 
+static int cmd_x(char *args) {
+  char *arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("Usage: x N EXPR\n");
+    return 0;
+  }
+  int n = strtol(arg, NULL, 10);
+  arg = strtok(NULL, " ");
+  if (arg == NULL) {
+    printf("Usage: x N EXPR\n");
+    return 0;
+  }
+  paddr_t expr = strtol(arg, NULL, 16);
+  int *mem = (int *)guest_to_host(expr);
+  for (int i = 0; i < n; i ++) {
+    printf("0x%08x: %08x\n", expr+i, mem[i]);
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -91,7 +112,8 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   { "si", "Step through N(default 1) instruction(s)", cmd_si },
-  { "info", "Print register state(info r) or watchpoint information(info w)", cmd_info}
+  { "info", "Print register state(info r) or watchpoint information(info w)", cmd_info},
+  { "x", "x N EXPR: Print N 4-byte values after EXPR", cmd_x},
 
   /* TODO: Add more commands */
 
