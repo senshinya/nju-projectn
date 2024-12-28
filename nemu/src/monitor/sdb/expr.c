@@ -21,23 +21,22 @@
 #include <regex.h>
 
 enum {
-  TK_NOTYPE = 256, TK_EQ,
-
-  /* TODO: Add more token types */
-
+  TK_NOTYPE = 256, TK_EQ, TK_DECIMAL,
+  TK_LEFT_PARENTHESIS, TK_RIGHT_PARENTHESIS
 };
 
 static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
-
+  {"\\d+", TK_DECIMAL}, // decimal
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
+  {"-", '-'},           // minus
+  {"\\*", '*'},         // multiply
+  {"/", '/'},           // divide
+  {"\\(", TK_LEFT_PARENTHESIS},
+  {"\\)", TK_RIGHT_PARENTHESIS},
   {"==", TK_EQ},        // equal
 };
 
@@ -89,13 +88,32 @@ static bool make_token(char *e) {
 
         position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
+        if (rules[i].token_type != TK_NOTYPE && nr_token >= ARRLEN(tokens)) {
+          printf("too many tokens in one expression\n");
+          return false;
+        }
 
         switch (rules[i].token_type) {
-          default: TODO();
+          case '+': case '-': case '*': case '/':
+          case TK_LEFT_PARENTHESIS: case TK_RIGHT_PARENTHESIS: case TK_EQ:
+            // just add to tokens
+            tokens[nr_token].type = rules[i].token_type;
+            nr_token ++;
+            break;
+          case TK_DECIMAL:
+            // record the str
+            if (substr_len > 31) {
+              printf("too long token: %.*s\n", substr_len, substr_start);
+              return false;
+            }
+            tokens[nr_token].type = rules[i].token_type;
+            memcpy(tokens[nr_token].str, substr_start, substr_len);
+            tokens[nr_token].str[substr_len] = '\0';
+            nr_token ++;
+            break;
+          default: 
+            // do nothing
+            break;
         }
 
         break;
@@ -112,14 +130,127 @@ static bool make_token(char *e) {
 }
 
 
+word_t eval(int start, int end, bool *success);
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
     return 0;
   }
 
-  /* TODO: Insert codes to evaluate the expression. */
-  TODO();
+  *success = true;
+  return eval(0, nr_token-1, success);
+}
 
+bool check_parentheses(int start, int end, bool *success) {
+  if (tokens[start].type != TK_LEFT_PARENTHESIS) {
+    return false;
+  }
+
+  if (tokens[end].type != TK_RIGHT_PARENTHESIS) {
+    *success = false;
+    return false;
+  }
+
+  int left = 0;
+  for (int i = start; i <= end; i ++) {
+    if (tokens[i].type == TK_LEFT_PARENTHESIS) {
+      left ++;
+    }
+    if (tokens[i].type == TK_RIGHT_PARENTHESIS) {
+      left --;
+    }
+    if (left < 0) {
+      *success = false;
+      return false;
+    }
+  }
+
+  return left == 0;
+}
+
+int find_main_operator(int start, int end, bool *success);
+word_t eval(int start, int end, bool *success) {
+  // no need to eval due to previous error
+  if (!*success) return 0;
+
+  if (start > end) {
+    *success = false;
+    return 0;
+  }
+
+  if (start == end) {
+    // single token, for now should be a decimal
+    return strtol(tokens[start].str, NULL, 10);
+  }
+  
+  if (check_parentheses(start, end, success)) {
+    // just drop the parentheses
+    return eval(start+1, end-1, success);
+  }
+
+  // no need to eval due to previous error
+  if (!*success) return 0;
+
+  // eval recursively
+  int op = find_main_operator(start, end, success);
+  if (!*success) return 0;
+  word_t val1 = eval(start, op-1, success); if (!*success) return 0;
+  word_t val2 = eval(op+1, end, success); if (!*success) return 0;
+  switch (tokens[op].type) {
+    case '+':
+      return val1 + val2;
+    case '-':
+      return val1 - val2;
+    case '*':
+      return val1 * val2;
+    case '/':
+      return val1 / val2;
+  }
+  printf("Unsupported operator: %c\n", tokens[op].type);
+  *success = false;
   return 0;
+}
+
+static struct operatorPriority {
+  char op;
+  int priority;
+} operatorPriority[] = {
+  {'+', 1},
+  {'-', 1},
+  {'*', 2},
+  {'/', 2},
+};
+
+int find_main_operator(int start, int end, bool *success) {
+  int pos = -1;
+  int posPriority = 0;
+  int parentheses = 0;
+  for (int i = start; i <= end; i ++) {
+    if (parentheses != 0) continue;
+    if (tokens[i].type == TK_LEFT_PARENTHESIS) {
+      parentheses ++;
+      continue;
+    }
+    if (tokens[i].type == TK_RIGHT_PARENTHESIS) {
+      parentheses --;
+      continue;
+    }
+    int currentPriority = -1;
+    for (int j = 0; j < ARRLEN(operatorPriority); j ++) {
+      if (tokens[i].type == operatorPriority[j].op) {
+        currentPriority = operatorPriority[j].priority;
+        break;
+      }
+    }
+    if (currentPriority <= posPriority) {
+      pos = i;
+      posPriority = currentPriority;
+    }
+  }
+  if (pos == -1) {
+    *success = false;
+    return 0;
+  }
+
+  return pos;
 }
