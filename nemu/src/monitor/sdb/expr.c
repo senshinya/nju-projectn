@@ -29,7 +29,7 @@ static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-  {"\\d+", TK_DECIMAL}, // decimal
+  {"[[:digit:]]+", TK_DECIMAL}, // decimal
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
   {"-", '-'},           // minus
@@ -133,6 +133,7 @@ static bool make_token(char *e) {
 word_t eval(int start, int end, bool *success);
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
+    printf("make token error\n");
     *success = false;
     return 0;
   }
@@ -147,7 +148,6 @@ bool check_parentheses(int start, int end, bool *success) {
   }
 
   if (tokens[end].type != TK_RIGHT_PARENTHESIS) {
-    *success = false;
     return false;
   }
 
@@ -163,9 +163,17 @@ bool check_parentheses(int start, int end, bool *success) {
       *success = false;
       return false;
     }
+    if (left == 0 && i != end) {
+      return false;
+    }
   }
 
-  return left == 0;
+  if (left != 0) {
+    *success = false;
+    return false;
+  }
+
+  return true;
 }
 
 int find_main_operator(int start, int end, bool *success);
@@ -174,6 +182,7 @@ word_t eval(int start, int end, bool *success) {
   if (!*success) return 0;
 
   if (start > end) {
+    printf("start > end, start=%d, end=%d\n", start, end);
     *success = false;
     return 0;
   }
@@ -189,11 +198,17 @@ word_t eval(int start, int end, bool *success) {
   }
 
   // no need to eval due to previous error
-  if (!*success) return 0;
+  if (!*success) {
+    printf("check_parentheses error, start=%d, end=%d\n", start, end);
+    return 0;
+  }
 
   // eval recursively
   int op = find_main_operator(start, end, success);
-  if (!*success) return 0;
+  if (!*success) {
+    printf("find_main_operator error, start=%d, end=%d\n", start, end);
+    return 0;
+  }
   word_t val1 = eval(start, op-1, success); if (!*success) return 0;
   word_t val2 = eval(op+1, end, success); if (!*success) return 0;
   switch (tokens[op].type) {
@@ -204,29 +219,18 @@ word_t eval(int start, int end, bool *success) {
     case '*':
       return val1 * val2;
     case '/':
-      return val1 / val2;
+      return (sword_t) val1 / (sword_t) val2;
   }
   printf("Unsupported operator: %c\n", tokens[op].type);
   *success = false;
   return 0;
 }
 
-static struct operatorPriority {
-  char op;
-  int priority;
-} operatorPriority[] = {
-  {'+', 1},
-  {'-', 1},
-  {'*', 2},
-  {'/', 2},
-};
-
 int find_main_operator(int start, int end, bool *success) {
   int pos = -1;
-  int posPriority = 0;
+  int posPriority = -1;
   int parentheses = 0;
   for (int i = start; i <= end; i ++) {
-    if (parentheses != 0) continue;
     if (tokens[i].type == TK_LEFT_PARENTHESIS) {
       parentheses ++;
       continue;
@@ -235,14 +239,18 @@ int find_main_operator(int start, int end, bool *success) {
       parentheses --;
       continue;
     }
+    if (parentheses != 0) continue;
     int currentPriority = -1;
-    for (int j = 0; j < ARRLEN(operatorPriority); j ++) {
-      if (tokens[i].type == operatorPriority[j].op) {
-        currentPriority = operatorPriority[j].priority;
-        break;
-      }
+    switch (tokens[i].type) {
+     case '+': case '-':
+      currentPriority = 1;
+      break;
+     case '*': case '/': 
+      currentPriority = 2;
+      break;
     }
-    if (currentPriority <= posPriority) {
+    if (currentPriority == -1) continue;
+    if (posPriority == -1 || currentPriority <= posPriority) {
       pos = i;
       posPriority = currentPriority;
     }

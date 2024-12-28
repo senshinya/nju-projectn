@@ -31,8 +31,74 @@ static char *code_format =
 "  return 0; "
 "}";
 
-static void gen_rand_expr() {
-  buf[0] = '\0';
+static char *buf_start = buf;
+static char *buf_end = buf+sizeof(buf);
+
+static void gen_char(char c) {
+  int n_writes = snprintf(buf_start, buf_end-buf_start, "%c", c);
+  if (buf_start < buf_end) {
+    if (n_writes > 0) {
+      buf_start += n_writes;
+    }
+  }
+}
+
+static void gen_space() {
+  int size = rand() % 4;
+  if (buf_start < buf_end) {
+    int n_writes = snprintf(buf_start, buf_end-buf_start, "%*s", size, "");
+    if (n_writes > 0) {
+      buf_start += n_writes;
+    }
+  }
+}
+
+static void gen_num() {
+  int num = rand() % INT8_MAX;
+  if (buf_start < buf_end) {
+    int n_writes = snprintf(buf_start, buf_end-buf_start, "%d", num);
+    if (n_writes > 0) {
+      buf_start += n_writes;
+    }
+  }
+}
+
+static void gen_rand_op() {
+  int op = rand() % 4;
+  switch (op) {
+    case 0:
+      gen_char('+');
+      break;
+    case 1:
+      gen_char('-');
+      break;
+    case 2:
+      gen_char('*');
+      break;
+    case 3:
+      gen_char('/');
+      break;
+  }
+}
+
+static void gen_rand_expr(int* length) {
+  gen_space();
+  switch (rand() % 3) {
+    case 0:
+      gen_num(); (*length) ++;
+      break;
+    case 1:
+      gen_char('('); (*length) ++;
+      gen_rand_expr(length);
+      gen_char(')'); (*length) ++;
+      break;
+    case 2:
+      gen_rand_expr(length);
+      gen_rand_op(); (*length) ++;
+      gen_rand_expr(length);
+      break;
+  }
+  gen_space();
 }
 
 int main(int argc, char *argv[]) {
@@ -44,7 +110,10 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
-    gen_rand_expr();
+    buf_start = buf;
+    int length = 0;
+    gen_rand_expr(&length);
+    if (length > 32) continue;
 
     sprintf(code_buf, code_format, buf);
 
@@ -53,7 +122,8 @@ int main(int argc, char *argv[]) {
     fputs(code_buf, fp);
     fclose(fp);
 
-    int ret = system("gcc /tmp/.code.c -o /tmp/.expr");
+    // add '-Wall -Werror' to avoid 'divide-0' situation
+    int ret = system("gcc -Wall -Werror /tmp/.code.c -o /tmp/.expr");
     if (ret != 0) continue;
 
     fp = popen("/tmp/.expr", "r");

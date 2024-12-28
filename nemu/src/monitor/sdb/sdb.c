@@ -186,9 +186,40 @@ void sdb_mainloop() {
   }
 }
 
+void test_expr() {
+  FILE *fp = fopen("/home/shinya/ics2024/nemu/tools/gen-expr/build/input", "r");
+  if (fp == NULL)
+    perror("test_expr error");
+  
+  word_t correct;
+  char exp[1024];
+  while (fscanf(fp, "%u", &correct) != EOF) {
+    if(fgets(exp, 1024, fp) == NULL) break;
+    // remove the '\n'
+    size_t len = strlen(exp);
+    if (len > 0 && exp[len - 1] == '\n') {
+        exp[len - 1] = '\0';
+    }
+    bool success = true;
+    word_t res = expr(exp, &success);
+    if (res != correct || !success) {
+      puts(exp);
+      printf("expected: %u, got: %u\n", correct, res);
+      assert(0);
+    }
+  }
+
+  fclose(fp);
+
+  Log("pass expr test!");
+}
+
 void init_sdb() {
   /* Compile the regular expressions. */
   init_regex();
+
+  /* Test decimal expression*/
+  test_expr();
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();
