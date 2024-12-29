@@ -19,18 +19,41 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
+#include <memory/vaddr.h>
 
 enum {
-  TK_NOTYPE = 256, TK_EQ, TK_DECIMAL,
+  TK_NOTYPE = 256, TK_NUM, TK_REG,
+  TK_EQ, TK_NQ,
+  TK_AND, TK_OR,
+  TK_NEG, TK_POS, TK_DEREF,
   TK_LEFT_PARENTHESIS, TK_RIGHT_PARENTHESIS
 };
+
+static int unary_prefix[] = {
+  TK_EQ, TK_NQ,
+  TK_AND, TK_OR,
+  TK_NEG, TK_POS, TK_DEREF,
+  TK_LEFT_PARENTHESIS
+};
+
+static int unary_operators[] = {
+  TK_NEG, TK_POS, TK_DEREF,
+};
+
+bool token_in(int token, int tokens[], int len) {
+  for (int i = 0; i < len; i ++) {
+    if (token == tokens[i]) return true;
+  }
+  return false;
+}
 
 static struct rule {
   const char *regex;
   int token_type;
 } rules[] = {
-  {"[[:digit:]]+", TK_DECIMAL}, // decimal
-  {" +", TK_NOTYPE},    // spaces
+  {" +", TK_NOTYPE},   // spaces
+  {"0x[0-9a-fA-F]+|[[:digit:]]+", TK_NUM},   // number
+  {"$[0-9a-zA-Z_]+", TK_REG},   // register
   {"\\+", '+'},         // plus
   {"-", '-'},           // minus
   {"\\*", '*'},         // multiply
@@ -38,6 +61,9 @@ static struct rule {
   {"\\(", TK_LEFT_PARENTHESIS},
   {"\\)", TK_RIGHT_PARENTHESIS},
   {"==", TK_EQ},        // equal
+  {"!=", TK_NQ},        // not equal
+  {"\\&\\&", TK_AND},       // logical and
+  {"\\|\\|", TK_OR},        // logical or
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -89,21 +115,35 @@ static bool make_token(char *e) {
         position += substr_len;
 
         if (rules[i].token_type != TK_NOTYPE && nr_token >= ARRLEN(tokens)) {
-          printf("too many tokens in one expression\n");
+          fprintf(stderr, "too many tokens in one expression\n");
           return false;
         }
 
         switch (rules[i].token_type) {
-          case '+': case '-': case '*': case '/':
-          case TK_LEFT_PARENTHESIS: case TK_RIGHT_PARENTHESIS: case TK_EQ:
+          case '+': case '-': case '*':
+            // recognize unary operator
+            if (nr_token == 0 || token_in(rules[i].token_type, unary_prefix, ARRLEN(unary_prefix))) {
+              switch (rules[i].token_type)
+              {
+              case '+': tokens[nr_token].type = TK_POS; break;
+              case '-': tokens[nr_token].type = TK_NEG; break;
+              case '*': tokens[nr_token].type = TK_DEREF; break;
+              }
+              nr_token ++;
+              break;
+            }
+            // not unary, passthrough
+          case '/':
+          case TK_LEFT_PARENTHESIS: case TK_RIGHT_PARENTHESIS:
+          case TK_EQ: case TK_NQ: case TK_AND: case TK_OR:
             // just add to tokens
             tokens[nr_token].type = rules[i].token_type;
             nr_token ++;
             break;
-          case TK_DECIMAL:
+          case TK_NUM: case TK_REG:
             // record the str
             if (substr_len > 31) {
-              printf("too long token: %.*s\n", substr_len, substr_start);
+              fprintf(stderr, "too long token: %.*s\n", substr_len, substr_start);
               return false;
             }
             tokens[nr_token].type = rules[i].token_type;
@@ -121,7 +161,7 @@ static bool make_token(char *e) {
     }
 
     if (i == NR_REGEX) {
-      printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
+      fprintf(stderr, "no match at position %d\n%s\n%*.s^\n", position, e, position, "");
       return false;
     }
   }
@@ -133,7 +173,7 @@ static bool make_token(char *e) {
 word_t eval(int start, int end, bool *success);
 word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
-    printf("make token error\n");
+    fprintf(stderr, "make token error\n");
     *success = false;
     return 0;
   }
@@ -182,14 +222,27 @@ word_t eval(int start, int end, bool *success) {
   if (!*success) return 0;
 
   if (start > end) {
-    printf("start > end, start=%d, end=%d\n", start, end);
+    fprintf(stderr, "start > end, start=%d, end=%d\n", start, end);
     *success = false;
     return 0;
   }
 
   if (start == end) {
-    // single token, for now should be a decimal
-    return strtol(tokens[start].str, NULL, 10);
+    // single token, should be a num or register
+    switch (tokens[start].type) {
+      case TK_NUM:
+        if (tokens[start].str[0] == '0' && tokens[start].str[1] == 'x') {
+          // hex
+          return strtol(tokens[start].str, NULL, 16);
+        }
+        // decimal
+        return strtol(tokens[start].str, NULL, 10);
+      case TK_REG:
+        return isa_reg_str2val(tokens[start].str+1, success);
+    }
+    fprintf(stderr, "unsupported single token: %s\n", tokens[start].str);
+    *success = false;
+    return 0;
   }
   
   if (check_parentheses(start, end, success)) {
@@ -199,15 +252,26 @@ word_t eval(int start, int end, bool *success) {
 
   // no need to eval due to previous error
   if (!*success) {
-    printf("check_parentheses error, start=%d, end=%d\n", start, end);
+    fprintf(stderr, "check_parentheses error, start=%d, end=%d\n", start, end);
     return 0;
   }
 
   // eval recursively
   int op = find_main_operator(start, end, success);
   if (!*success) {
-    printf("find_main_operator error, start=%d, end=%d\n", start, end);
+    fprintf(stderr, "find_main_operator error, start=%d, end=%d\n", start, end);
     return 0;
+  }
+
+  // unary
+  if (token_in(tokens[op].type, unary_operators, ARRLEN(unary_operators))) {
+    word_t val2 = eval(op+1, end, success); if (!*success) return 0;
+    switch (tokens[op].type) {
+      case TK_POS: return val2;
+      case TK_NEG: return -val2;
+      case TK_DEREF: return vaddr_read(val2, 8);
+      default: fprintf(stderr, "Unsupported operator: %c\n", tokens[op].type);
+    }
   }
   word_t val1 = eval(start, op-1, success); if (!*success) return 0;
   word_t val2 = eval(op+1, end, success); if (!*success) return 0;
@@ -220,11 +284,36 @@ word_t eval(int start, int end, bool *success) {
       return val1 * val2;
     case '/':
       return (sword_t) val1 / (sword_t) val2;
+    case TK_AND:
+      return val1 && val2;
+    case TK_OR:
+      return val1 || val2;
+    case TK_EQ:
+      return val1 == val2;
+    case TK_NQ:
+      return val1 != val2;
   }
-  printf("Unsupported operator: %c\n", tokens[op].type);
+  fprintf(stderr, "Unsupported operator: %c\n", tokens[op].type);
   *success = false;
   return 0;
 }
+
+static struct {
+  int op;
+  int priority;
+} operatorPriority[] = {
+  {TK_OR, 1},
+  {TK_AND, 2},
+  {TK_EQ, 3},
+  {TK_NQ, 3},
+  {'+', 5},
+  {'-', 5},
+  {'*', 6},
+  {'/', 6},
+  {TK_POS, 7},
+  {TK_NEG, 7},
+  {TK_DEREF, 7},
+};
 
 int find_main_operator(int start, int end, bool *success) {
   int pos = -1;
@@ -241,13 +330,11 @@ int find_main_operator(int start, int end, bool *success) {
     }
     if (parentheses != 0) continue;
     int currentPriority = -1;
-    switch (tokens[i].type) {
-     case '+': case '-':
-      currentPriority = 1;
-      break;
-     case '*': case '/': 
-      currentPriority = 2;
-      break;
+    for (int j = 0; j < ARRLEN(operatorPriority); j ++) {
+      if (tokens[i].type == operatorPriority[j].op) {
+        currentPriority = operatorPriority[j].priority;
+        break;
+      }
     }
     if (currentPriority == -1) continue;
     if (posPriority == -1 || currentPriority <= posPriority) {
