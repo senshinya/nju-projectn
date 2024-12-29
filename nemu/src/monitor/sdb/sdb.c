@@ -93,11 +93,23 @@ static int cmd_x(char *args) {
     printf("Usage: x N EXPR\n");
     return 0;
   }
-  paddr_t expr = strtol(arg, NULL, 16);
-  int *mem = (int *)guest_to_host(expr);
+  bool success = true;
+  word_t result = expr(arg, &success);
+  int *mem = (int *)guest_to_host(result);
   for (int i = 0; i < n; i ++) {
-    printf("0x%08x: %08x\n", expr+i, mem[i]);
+    printf("0x%08x: %08x\n", result+i, mem[i]);
   }
+  return 0;
+}
+
+static int cmd_p(char *args) {
+  bool success = true;
+  word_t result = expr(args, &success);
+  if (!success) {
+    printf("Invalid expression\n");
+    return 0;
+  }
+  printf("0x%08x\n", result);
   return 0;
 }
 
@@ -112,11 +124,9 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   { "si", "Step through N(default 1) instruction(s)", cmd_si },
-  { "info", "Print register state(info r) or watchpoint information(info w)", cmd_info},
-  { "x", "x N EXPR: Print N 4-byte values after EXPR", cmd_x},
-
-  /* TODO: Add more commands */
-
+  { "info", "Print register state(info r) or watchpoint information(info w)", cmd_info },
+  { "x", "x N EXPR: Print N 4-byte values after EXPR", cmd_x },
+  { "p", "p EXPR: Calculate and print the value of EXPR", cmd_p },
 };
 
 #define NR_CMD ARRLEN(cmd_table)

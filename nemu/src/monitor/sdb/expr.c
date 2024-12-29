@@ -53,7 +53,7 @@ static struct rule {
 } rules[] = {
   {" +", TK_NOTYPE},   // spaces
   {"0x[0-9a-fA-F]+|[[:digit:]]+", TK_NUM},   // number
-  {"$[0-9a-zA-Z_]+", TK_REG},   // register
+  {"\\$[0-9a-zA-Z_]+", TK_REG},   // register
   {"\\+", '+'},         // plus
   {"-", '-'},           // minus
   {"\\*", '*'},         // multiply
