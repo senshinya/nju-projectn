@@ -74,7 +74,7 @@ static int cmd_info(char *args) {
     // print register statement
     isa_reg_display();
   } else if (strcmp(arg, "w") == 0) {
-    // TODO implement watchpoint information
+    watchpoint_display();
   } else {
     printf("Usage: info r|w\n");
   }
@@ -113,6 +113,28 @@ static int cmd_p(char *args) {
   return 0;
 }
 
+static int cmd_w(char *args) {
+  bool success = true;
+  word_t result = expr(args, &success);
+  if (!success) {
+    printf("Invalid expression\n");
+    return 0;
+  }
+  add_wp(args, result);
+  return 0;
+}
+
+static int cmd_d(char *args) {
+  char *arg = strtok(NULL, "");
+  if (!arg) {
+    printf("Usage: d N\n");
+    return 0;
+  }
+  int no = strtol(arg, NULL, 10);
+  remove_wp(no);
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -123,10 +145,12 @@ static struct {
   { "help", "Display information about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-  { "si", "Step through N(default 1) instruction(s)", cmd_si },
-  { "info", "Print register state(info r) or watchpoint information(info w)", cmd_info },
-  { "x", "x N EXPR: Print N 4-byte values after EXPR", cmd_x },
+  { "si", "si [N]: Step through N(default 1) instruction(s)", cmd_si },
+  { "info", "info r|w: Print register state(r) or watchpoint information(w)", cmd_info },
+  { "x", "x N EXPR: Print N 4-byte values after address EXPR", cmd_x },
   { "p", "p EXPR: Calculate and print the value of EXPR", cmd_p },
+  { "w", "w EXPR: Set a watchpoint on the value of EXPR", cmd_w },
+  { "d", "d N: Delete watchpoint N", cmd_d }
 };
 
 #define NR_CMD ARRLEN(cmd_table)
@@ -229,7 +253,7 @@ void init_sdb() {
   init_regex();
 
   /* Test decimal expression*/
-  test_expr();
+  // test_expr();
 
   /* Initialize the watchpoint pool. */
   init_wp_pool();
