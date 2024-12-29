@@ -64,7 +64,7 @@ static void gen_num() {
 }
 
 static void gen_rand_op() {
-  int op = rand() % 4;
+  int op = rand() % 8;
   switch (op) {
     case 0:
       gen_char('+');
@@ -77,6 +77,18 @@ static void gen_rand_op() {
       break;
     case 3:
       gen_char('/');
+      break;
+    case 4:
+      gen_char('&'); gen_char('&');
+      break;
+    case 5:
+      gen_char('|'); gen_char('|');
+      break;
+    case 6:
+      gen_char('='); gen_char('=');
+      break;
+    case 7:
+      gen_char('!'); gen_char('=');
       break;
   }
 }
@@ -123,7 +135,7 @@ int main(int argc, char *argv[]) {
     fclose(fp);
 
     // add '-Wall -Werror' to avoid 'divide-0' situation
-    int ret = system("gcc -Wall -Werror /tmp/.code.c -o /tmp/.expr");
+    int ret = system("gcc -Wall -Werror -Wno-parentheses /tmp/.code.c -o /tmp/.expr");
     if (ret != 0) continue;
 
     fp = popen("/tmp/.expr", "r");

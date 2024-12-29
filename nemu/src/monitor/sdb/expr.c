@@ -122,7 +122,7 @@ static bool make_token(char *e) {
         switch (rules[i].token_type) {
           case '+': case '-': case '*':
             // recognize unary operator
-            if (nr_token == 0 || token_in(rules[i].token_type, unary_prefix, ARRLEN(unary_prefix))) {
+            if (nr_token == 0 || token_in(tokens[nr_token-1].type, unary_prefix, ARRLEN(unary_prefix))) {
               switch (rules[i].token_type)
               {
               case '+': tokens[nr_token].type = TK_POS; break;
@@ -269,7 +269,7 @@ word_t eval(int start, int end, bool *success) {
     switch (tokens[op].type) {
       case TK_POS: return val2;
       case TK_NEG: return -val2;
-      case TK_DEREF: return vaddr_read(val2, 8);
+      case TK_DEREF: return vaddr_read(val2, 4);
       default: fprintf(stderr, "Unsupported operator: %c\n", tokens[op].type);
     }
   }

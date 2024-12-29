@@ -97,7 +97,7 @@ static int cmd_x(char *args) {
   word_t result = expr(arg, &success);
   int *mem = (int *)guest_to_host(result);
   for (int i = 0; i < n; i ++) {
-    printf("0x%08x: %08x\n", result+i, mem[i]);
+    printf("0x%08x: %08x\n", result+i*4, mem[i]);
   }
   return 0;
 }
