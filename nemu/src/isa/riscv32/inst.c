@@ -128,5 +128,7 @@ static int decode_exec(Decode *s) {
 
 int isa_exec_once(Decode *s) {
   s->isa.inst = inst_fetch(&s->snpc, 4);
+  void iringbuf_push(word_t pc, word_t inst);
+  IFDEF(CONFIG_ITRACE, iringbuf_push(s->pc, s->isa.inst));
   return decode_exec(s);
 }

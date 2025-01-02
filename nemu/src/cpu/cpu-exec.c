@@ -95,6 +95,8 @@ static void statistic() {
 }
 
 void assert_fail_msg() {
+  void iringbuf_display();
+  iringbuf_display();
   isa_reg_display();
   statistic();
 }
