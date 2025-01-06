@@ -36,7 +36,6 @@ static void parse_func_table(Elf32_Ehdr *ehdr) {
         func->entry = symbol->st_value;
         func->size = symbol->st_size;
         strcpy(func->func_name, string_table + symbol->st_name);
-        printf("index = %d, entry = " FMT_PADDR ", size = %d, name = %s\n", i, func->entry, func->size, func->func_name);
         func->next = func_list;
         func_list = func;
     }
