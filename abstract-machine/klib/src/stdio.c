@@ -5,8 +5,20 @@
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
+int vsprintf(char *out, const char *fmt, va_list ap);
 int printf(const char *fmt, ...) {
-  panic("Not implemented");
+  char buf[1024];
+  va_list args;
+  va_start(args, fmt);
+  int len = vsprintf(buf, fmt, args);
+  va_end(args);
+  if (len <= 0) return len;
+  char *ptr = buf;
+  while (*ptr != '\0') {
+    putch(*ptr);
+    ptr ++;
+  }
+  return len;
 }
 
 static void reverse(char *s, int len) {
