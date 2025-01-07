@@ -26,7 +26,7 @@ void iringbuf_push(word_t pc, word_t inst) {
 
 void iringbuf_display() {
     if (!iringbuf.full && iringbuf.next == 0) return; // empty
-
+#ifdef CONFIG_ITRACE
     void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
 
     char buf[128];  // line buffer
@@ -53,4 +53,5 @@ void iringbuf_display() {
         disassemble(p, buf+sizeof(buf)-p, inst_addr, (uint8_t *)&inst, 4);
         puts(buf);
     }
+#endif
 }
