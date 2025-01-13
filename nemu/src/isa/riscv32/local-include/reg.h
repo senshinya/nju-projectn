@@ -30,4 +30,50 @@ static inline const char* reg_name(int idx) {
   return regs[check_reg_idx(idx)];
 }
 
+typedef enum {
+	CSR_MSTATUS = 0x300,
+	CSR_MTVEC   = 0x305,
+	CSR_MEPC    = 0x341,
+	CSR_MCAUSE  = 0x342,
+} csr_id;
+
+static inline word_t get_csr_val_by_id(int csr_id) {
+  switch (csr_id)
+  {
+  case CSR_MSTATUS:
+    return cpu.csrs.mstatus;
+  case CSR_MTVEC:
+    return cpu.csrs.mtvec;
+  case CSR_MEPC:
+    return cpu.csrs.mepc;
+  case CSR_MCAUSE:
+    return cpu.csrs.mcause;
+  default:
+    panic("unsupported csr id %.8x\n", csr_id);
+  }
+}
+
+static inline void set_csr_val_by_id(int csr_id, word_t val) {
+  switch (csr_id)
+  {
+  case CSR_MSTATUS:
+    cpu.csrs.mstatus = val;
+    break;
+  case CSR_MTVEC:
+    cpu.csrs.mtvec = val;
+    break;
+  case CSR_MEPC:
+    cpu.csrs.mepc = val;
+    break;
+  case CSR_MCAUSE:
+    cpu.csrs.mcause = val;
+    break;
+  default:
+    panic("unsupported csr id %.8x\n", csr_id);
+  }
+}
+ 
+#define read_csr(idx) (get_csr_val_by_id(idx)) 
+#define write_csr(idx, val) (set_csr_val_by_id(idx, val))
+
 #endif
