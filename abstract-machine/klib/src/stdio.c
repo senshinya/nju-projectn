@@ -7,7 +7,7 @@
 
 int vsprintf(char *out, const char *fmt, va_list ap);
 int printf(const char *fmt, ...) {
-  char buf[1024];
+  char buf[4096];
   va_list args;
   va_start(args, fmt);
   int len = vsprintf(buf, fmt, args);
