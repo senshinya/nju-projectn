@@ -46,6 +46,19 @@ static int int2str(int n, char *s, int base) {
   return i;
 }
 
+static int uint2str(unsigned int n, char *s, int base) {
+  unsigned int pos = n;
+  int i = 0;
+  do {
+    int c = pos % base;
+    if (c >= 10) s[i++] = 'a'+c-10;
+    else s[i++] = '0'+c;
+    pos /= base;
+  } while (pos != 0);
+  reverse(s, i);
+  return i;
+}
+
 int vsprintf(char *out, const char *fmt, va_list ap) {
   char *p = out;
   const char *f = fmt;
@@ -66,6 +79,10 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
         const char *str = va_arg(ap, const char *);
         strcpy(p, str);
         p += strlen(str);
+        break;
+      case 'p':
+        unsigned int addr = va_arg(ap, unsigned int);
+        p += uint2str(addr, p, 16);
         break;
       case '%':
         *p = '%';
