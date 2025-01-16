@@ -18,6 +18,10 @@ void do_syscall(Context *c) {
       for (int i = 0; i < len; i ++) putch(buf[i]);
       c->GPRx = len;
       break;
+    case SYS_brk:
+      // int increment = c->GPR2;
+      // always success
+      c->GPRx = 0; break;
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
 }
