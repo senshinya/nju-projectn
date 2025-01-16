@@ -13,6 +13,7 @@ extern size_t ramdisk_read(void *buf, size_t offset, size_t len);
 static uintptr_t loader(PCB *pcb, const char *filename) {
   Elf_Ehdr ehdr;
   ramdisk_read((void *)&ehdr, 0, sizeof(Elf_Ehdr));
+  assert(*(uint32_t *)ehdr.e_ident == 0x464c457f);
   Elf_Phdr phdrs[ehdr.e_phnum];
   ramdisk_read((void *)phdrs, ehdr.e_phoff, sizeof(Elf_Phdr) * ehdr.e_phnum);
   for (int i = 0; i < ehdr.e_phnum; i ++) {
