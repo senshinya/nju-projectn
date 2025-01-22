@@ -27,6 +27,10 @@ void isa_reg_display() {
   for (int i = 0; i < ARRLEN(regs); i++) {
     printf("%s: 0x%08x %u\n", regs[i], gpr(i), gpr(i));
   }
+  printf("mstatus: 0x%08x %u\n", cpu.csrs.mstatus, cpu.csrs.mstatus);
+  printf("mtvec: 0x%08x %u\n", cpu.csrs.mtvec, cpu.csrs.mtvec);
+  printf("mcause: 0x%08x %u\n", cpu.csrs.mcause, cpu.csrs.mcause);
+  printf("mepc: 0x%08x %u\n", cpu.csrs.mepc, cpu.csrs.mepc);
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {

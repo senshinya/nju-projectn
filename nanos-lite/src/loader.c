@@ -13,24 +13,36 @@
 
 static uintptr_t loader(PCB *pcb, const char *filename) {
   int fd = fs_open(filename, 0, 0);
+  if (fd == -1) {
+      printf("Failed to open file %s\n", filename);
+      assert(0);
+  }
   Elf_Ehdr ehdr;
-  fs_read(fd, &ehdr, sizeof(Elf_Ehdr));
-  assert(*(uint32_t *)ehdr.e_ident == 0x464c457f);
-  Elf_Phdr phdrs[ehdr.e_phnum];
-  fs_lseek(fd, ehdr.e_phoff, 0);
-  fs_read(fd, (void *)phdrs, sizeof(Elf_Phdr) * ehdr.e_phnum);
-  for (int i = 0; i < ehdr.e_phnum; i ++) {
-    if (phdrs[i].p_type != PT_LOAD) {
-      continue;
-    }
-    Elf_Phdr phdr = phdrs[i];
-    uint8_t buf[phdr.p_filesz];
-    fs_lseek(fd, phdr.p_offset, 0);
-    fs_read(fd, (void *)buf, phdr.p_filesz);
-    memcpy((void *)phdr.p_vaddr, buf, phdr.p_filesz);
-    if (phdr.p_filesz < phdr.p_memsz) {
-      memset((void *)(phdr.p_vaddr + phdr.p_filesz), 0, phdr.p_memsz-phdr.p_filesz);
-    }
+  if (fs_read(fd, &ehdr, sizeof(Elf_Ehdr)) == 0) {
+      printf("Failed to read ELF header\n");
+      assert(0);
+  }
+  if (memcmp(ehdr.e_ident, ELFMAG, SELFMAG) != 0) {
+      printf("Not an ELF file\n");
+      assert(0);
+  }
+  Elf_Phdr phdr[ehdr.e_phnum];
+  fs_lseek(fd, ehdr.e_phoff, SEEK_SET);
+  if (fs_read(fd, phdr, ehdr.e_phnum * sizeof(Elf_Phdr)) == 0) {
+      printf("Failed to read program headers\n");
+      assert(0);
+  }
+  for (int i = 0; i < ehdr.e_phnum; i++) {
+      if (phdr[i].p_type == PT_LOAD) {
+          fs_lseek(fd, phdr[i].p_offset, SEEK_SET);
+          if (fs_read(fd, (void *)phdr[i].p_vaddr, phdr[i].p_filesz) == 0) {
+              printf("Failed to read segment %d\n", i);
+              assert(0);
+          }
+          if (phdr[i].p_filesz < phdr[i].p_memsz) {
+              memset((void *)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
+          }
+      }
   }
   fs_close(fd);
   return ehdr.e_entry;
